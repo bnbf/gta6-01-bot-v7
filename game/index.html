@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LUMEN BAY: Neon Heat</title>
+<style>
+  :root {
+    --pink: #ff2d78; --cyan: #22d3ee; --amber: #ffd166; --green: #39d353;
+    --panel: rgba(12, 10, 24, 0.78); --line: rgba(255, 255, 255, 0.16);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1a0f2e; font-family: "Arial Narrow", "Helvetica Neue", Arial, sans-serif; }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+  #hud { position: fixed; inset: 0; pointer-events: none; color: #fff; z-index: 5; }
+  #hud.hidden { display: none; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; backdrop-filter: blur(2px); }
+
+  /* --- top row --- */
+  #hud-top { position: absolute; top: 12px; left: 12px; right: 12px; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  #mission-panel { width: 340px; padding: 10px 12px; border-left: 4px solid var(--pink); }
+  .mp-head { display: flex; justify-content: space-between; font-size: 12px; letter-spacing: 2px; color: var(--cyan); font-weight: bold; }
+  #mp-timer { color: var(--amber); }
+  #mp-timer.urgent { color: #ff2d2d; animation: blink 0.5s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: 0.3; } }
+  #mp-title { font-size: 21px; font-weight: 900; letter-spacing: 1px; margin-top: 2px; }
+  #mp-stage { font-size: 12px; letter-spacing: 2px; color: var(--amber); margin-top: 1px; }
+  #mp-objective { font-size: 15px; margin-top: 5px; line-height: 1.25; }
+  #mp-next { font-size: 13px; color: #b8c4d8; margin-top: 3px; }
+  #mp-holdbar { display: none; height: 6px; background: rgba(255,255,255,0.15); border-radius: 3px; margin-top: 6px; overflow: hidden; }
+  #mp-holdfill { height: 100%; width: 0%; background: var(--green); }
+
+  #top-center { text-align: center; }
+  #stars { font-size: 26px; letter-spacing: 3px; text-shadow: 0 0 8px rgba(0,0,0,0.8); }
+  .star { color: rgba(255,255,255,0.25); }
+  .star.on { color: var(--amber); text-shadow: 0 0 10px var(--amber); }
+  #money { font-size: 26px; font-weight: 900; color: var(--green); text-shadow: 0 0 8px rgba(0,0,0,0.8); }
+
+  #right-col { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+  #dispatch { width: 250px; padding: 8px 10px; }
+  .dp-head { font-size: 12px; letter-spacing: 2px; color: var(--cyan); font-weight: bold; border-bottom: 1px solid var(--line); padding-bottom: 4px; margin-bottom: 4px; }
+  .dp-row { display: flex; justify-content: space-between; gap: 6px; font-size: 13px; line-height: 1.5; }
+  .dp-row.quiet { color: #8a93a8; }
+  .dp-name { color: #fff; font-weight: bold; }
+  .dp-dist { color: var(--amber); }
+  .dp-tactic { color: var(--pink); font-weight: bold; }
+  #minimap-wrap { position: relative; width: 180px; height: 180px; border-radius: 50%; overflow: hidden; border: 3px solid rgba(255,255,255,0.35); box-shadow: 0 0 16px rgba(0,0,0,0.6); }
+  #minimap { width: 100%; height: 100%; display: block; background: #0f2a3a; }
+  #mm-label { position: absolute; bottom: 6px; left: 0; right: 0; text-align: center; font-size: 10px; letter-spacing: 3px; color: rgba(255,255,255,0.85); text-shadow: 0 1px 3px #000; }
+
+  /* --- crew cards --- */
+  #crew-col { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 8px; }
+  .crew-card { display: flex; align-items: center; gap: 8px; width: 218px; padding: 7px 9px; border-left: 4px solid var(--pink); }
+  .crew-portrait { width: 38px; height: 38px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 900; color: #111; flex-shrink: 0; }
+  .crew-info { flex: 1; min-width: 0; }
+  .crew-name { font-size: 12px; font-weight: 900; letter-spacing: 0.5px; }
+  .crew-ability { font-size: 13px; color: var(--cyan); font-weight: bold; }
+  .crew-desc { font-size: 11px; color: #b8c4d8; line-height: 1.2; }
+  .crew-key { font-size: 14px; font-weight: 900; color: var(--amber); }
+  .crew-cd { font-size: 11px; font-weight: bold; color: var(--green); text-align: right; min-width: 42px; }
+  .crew-cd.cooling { color: #ff8a5a; }
+
+  /* --- standing --- */
+  #standing { position: absolute; left: 12px; bottom: 12px; padding: 8px 12px; font-size: 13px; letter-spacing: 1px; line-height: 1.6; border-left: 4px solid var(--amber); }
+  #st-rank { font-weight: 900; color: var(--amber); }
+  #st-district { color: #fff; }
+  #st-barrio { color: #b8c4d8; }
+
+  /* --- dialogue --- */
+  #dialogue { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); width: 480px; display: none; padding: 10px 12px; gap: 10px; border-left: 4px solid var(--cyan); }
+  #dialogue.show { display: flex; }
+  .dlg-portrait { width: 46px; height: 46px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 900; color: #111; flex-shrink: 0; }
+  .dlg-name { font-size: 14px; font-weight: 900; letter-spacing: 1px; }
+  .dlg-role { font-size: 11px; letter-spacing: 2px; color: var(--cyan); }
+  .dlg-text { font-size: 14px; line-height: 1.35; margin-top: 3px; }
+
+  /* --- bottom right --- */
+  #bottom-right { position: absolute; right: 12px; bottom: 12px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+  #weapons { display: flex; gap: 4px; padding: 6px; }
+  .weapon { padding: 4px 8px; font-size: 12px; border: 1px solid transparent; border-radius: 3px; color: #b8c4d8; }
+  .weapon.active { background: rgba(255, 45, 120, 0.25); border-color: var(--pink); color: #fff; }
+  .w-ammo { color: var(--amber); margin-left: 5px; font-weight: bold; }
+  #car-panel { padding: 7px 12px; text-align: right; min-width: 220px; }
+  #car-name { font-size: 16px; font-weight: 900; letter-spacing: 1px; }
+  #car-cond { position: relative; height: 10px; background: rgba(255,255,255,0.15); border-radius: 5px; margin-top: 5px; overflow: hidden; }
+  #car-cond-fill { height: 100%; background: var(--green); }
+  #car-cond-text { position: absolute; right: 4px; top: -1px; font-size: 9px; font-weight: bold; color: #fff; text-shadow: 0 1px 2px #000; }
+  #radio { font-size: 12px; color: var(--cyan); letter-spacing: 1px; margin-top: 5px; }
+  #speedo { font-size: 52px; font-weight: 900; line-height: 0.9; text-shadow: 0 2px 10px rgba(0,0,0,0.8); }
+  #speed-unit { font-size: 15px; letter-spacing: 2px; color: var(--amber); margin-left: 4px; }
+
+  #toast { position: absolute; top: 22%; left: 50%; transform: translateX(-50%); font-size: 22px; font-weight: 900; letter-spacing: 2px; color: var(--amber); text-shadow: 0 2px 10px #000; display: none; text-align: center; }
+  #toast.show { display: block; }
+  #hint { position: absolute; top: 84px; left: 50%; transform: translateX(-50%); font-size: 11px; letter-spacing: 1px; color: rgba(255,255,255,0.55); text-shadow: 0 1px 3px #000; }
+
+  /* --- start / pause overlays --- */
+  .overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; flex-direction: column; z-index: 10; background: linear-gradient(180deg, rgba(10,6,24,0.25) 0%, rgba(10,6,24,0.82) 78%); color: #fff; text-align: center; }
+  .overlay.show { display: flex; }
+  .ov-kicker { font-size: 15px; letter-spacing: 6px; color: var(--cyan); font-weight: bold; }
+  .ov-title { font-size: 84px; font-weight: 900; letter-spacing: 2px; line-height: 0.95; margin: 8px 0 2px; text-shadow: 0 0 30px rgba(255,45,120,0.65), 0 4px 0 rgba(0,0,0,0.4); }
+  .ov-title span { color: var(--pink); }
+  .ov-sub { font-size: 19px; color: var(--amber); letter-spacing: 2px; }
+  .ov-story { max-width: 620px; font-size: 16px; line-height: 1.55; color: #dfe6f2; margin: 18px 0 6px; }
+  .ov-controls { font-size: 14px; color: #b8c4d8; line-height: 1.9; margin: 10px 0 20px; }
+  .ov-controls b { color: #fff; }
+  .ov-btn { pointer-events: auto; cursor: pointer; font-family: inherit; font-size: 19px; font-weight: 900; letter-spacing: 2px; color: #111; background: var(--pink); border: none; border-radius: 6px; padding: 13px 34px; margin: 4px; box-shadow: 0 0 24px rgba(255,45,120,0.55); }
+  .ov-btn.alt { background: var(--cyan); box-shadow: 0 0 24px rgba(34,211,238,0.5); }
+  .ov-foot { margin-top: 16px; font-size: 12px; letter-spacing: 2px; color: rgba(255,255,255,0.55); }
+  #pause { background: rgba(10,6,24,0.72); }
+  #pause .ov-title { font-size: 54px; }
+
+  @media (max-width: 1100px) {
+    #mission-panel { width: 280px; }
+    #crew-col { display: none; }
+    #dialogue { width: 380px; }
+    .ov-title { font-size: 56px; }
+  }
+</style>
+</head>
+<body>
+<canvas id="game" aria-label="Lumen Bay Neon Heat: drive and walk through a low-poly dusk city, run missions, lose the police"></canvas>
+<p id="status" role="status" aria-live="polite"></p>
+<div id="hud"></div>
+
+<div id="start" class="overlay">
+  <div class="ov-kicker">A LOW-POLY OPEN-WORLD CRIME GAME</div>
+  <div class="ov-title">LUMEN BAY<br><span>NEON HEAT</span></div>
+  <div class="ov-sub">12 MISSIONS · 3 ACTS · ONE CITY THAT NEVER SLEEPS</div>
+  <div class="ov-story">Lux Vega is back in Lumen Bay — sun-soaked avenues, neon on the strand,
+    and the LBPD on every corner. Run twelve jobs for the crew: steal the cars, make the drops,
+    lose the helicopters, and take the city back one corner at a time.</div>
+  <div class="ov-controls">
+    <b>WASD</b> drive / walk &nbsp;·&nbsp; <b>E</b> enter &amp; exit car &nbsp;·&nbsp; <b>SPACE</b> punch<br>
+    <b>1 / 2 / 3</b> crew abilities &nbsp;·&nbsp; <b>Q</b> radio &nbsp;·&nbsp; <b>Mouse drag</b> camera &nbsp;·&nbsp; <b>Wheel</b> zoom / weapon &nbsp;·&nbsp; <b>P</b> pause
+  </div>
+  <div>
+    <button class="ov-btn" id="start-btn">START ENGINE</button>
+    <button class="ov-btn alt" id="continue-btn" style="display:none">CONTINUE</button>
+  </div>
+  <div class="ov-foot">AN ORIGINAL CITY · ORIGINAL CHARACTERS · ORIGINAL STORY — NOTHING FROM ROCKSTAR GAMES</div>
+</div>
+
+<div id="pause" class="overlay">
+  <div class="ov-title">PAUSED</div>
+  <div class="ov-story">The city waits for no one — except right now.</div>
+  <button class="ov-btn" id="resume-btn">RESUME</button>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
