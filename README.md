@@ -65,3 +65,5 @@ The four shots under `screenshots/` are real renders of the game's own code, sta
 - `game/src/rng.js` — seeded random helpers.
 
 An original city, original characters, original vehicles, original story, art, sound and music — nothing from Rockstar Games.
+
+v7: full 3D rebuild of the v6 top-down game — same city, same crew, now third-person.
